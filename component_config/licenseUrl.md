@@ -1,0 +1,1 @@
+https://github.com/keboola/component-linkedin-ads/blob/master/LICENSE.md
