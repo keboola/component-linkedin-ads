@@ -1,99 +1,166 @@
-"""
-Template Component main class.
+"""LinkedIn Ads extractor component."""
 
-"""
-
-import csv
 import logging
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import date, timedelta
+from itertools import batched
 
-from keboola.component.base import ComponentBase
+from keboola.component.base import ComponentBase, sync_action
+from keboola.component.dao import TableDefinition
 from keboola.component.exceptions import UserException
+from keboola.component.sync_actions import SelectElement
+from keboola.csvwriter import ElasticDictWriter
+from keboola.utils import parse_datetime_interval
 
 from configuration import Configuration
+from linkedin_client import AccountsClient, AnalyticsClient, CampaignsClient, CreativesClient, LinkedInAdsClient
+
+
+@dataclass
+class _WriterRecord:
+    writer: ElasticDictWriter
+    table_def: TableDefinition
 
 
 class Component(ComponentBase):
-    """
-    Extends base class for general Python components. Initializes the CommonInterface
-    and performs configuration validation.
-
-    For easier debugging the data folder is picked up by default from `../data` path,
-    relative to working directory.
-
-    If `debug` parameter is present in the `config.json`, the default logger is set to verbose DEBUG mode.
-    """
-
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
+        self.cfg = Configuration(**self.configuration.parameters)
+        if self.cfg.debug:
+            logging.getLogger().setLevel(logging.DEBUG)
+        oauth = self.configuration.oauth_credentials
+        access_token = oauth.data.get("access_token") if oauth else None
+        if not access_token:
+            raise UserException("Missing OAuth access token. Re-authorize the component via Keboola OAuth.")
+        self._client = LinkedInAdsClient(access_token)
+        self._writers: dict[str, _WriterRecord] = {}
+        self._campaign_ids_cache: list[str] | None = None
+        self._creative_campaign_map_cache: dict[str, str] | None = None
 
-    def run(self):
-        """
-        Main execution code
-        """
+    @sync_action("list_accounts")
+    def list_accounts(self) -> list[SelectElement]:
+        return [
+            SelectElement(value=row["id"], label=f"{row['name']} ({row['id']})")
+            for row in AccountsClient(self._client).list_all_accounts()
+        ]
 
-        # ####### EXAMPLE TO REMOVE
-        # check for missing configuration parameters
-        params = Configuration(**self.configuration.parameters)
+    def run(self) -> None:
+        state = self.get_state_file()
+        start_date, end_date = self._determine_date_range(state, self.cfg.date_start, self.cfg.date_end)
+        logging.info(f"Syncing account {self.cfg.ad_account_id} from {start_date} to {end_date}")
 
-        # Access parameters in configuration
-        if params.print_hello:
-            logging.info("Hello World")
+        for endpoint in self.cfg.endpoints:
+            self._sync_endpoint(endpoint, self.cfg.ad_account_id, start_date, end_date)
 
-        # get input table definitions
-        input_tables = self.get_input_tables_definitions()
-        for table in input_tables:
-            logging.info(f"Received input table: {table.name} with path: {table.full_path}")
+        self._flush_writers()
+        self.write_state_file({"last_run_date": end_date.isoformat()})
 
-        if len(input_tables) == 0:
-            raise UserException("No input tables found")
+    def _sync_endpoint(self, endpoint: str, account_id: str, start_date: date, end_date: date) -> None:
+        if endpoint == "accounts":
+            self._write_rows("ad_accounts", AccountsClient(self._client).get_accounts(account_id), ["id"])
 
-        # get last state data/in/state.json from previous run
-        previous_state = self.get_state_file()
-        logging.info(previous_state.get("some_parameter"))
+        elif endpoint == "campaigns":
+            campaigns_client = CampaignsClient(self._client)
+            self._write_rows("campaign_groups", campaigns_client.get_campaign_groups(account_id), ["id"])
+            rows = list(campaigns_client.get_campaigns(account_id))
+            # Populate ID cache so downstream endpoints (creatives, analytics) don't re-fetch
+            if self._campaign_ids_cache is None:
+                self._campaign_ids_cache = [row["id"] for row in rows]
+            self._write_rows("campaigns", rows, ["id"])
 
-        # Create output table (Table definition - just metadata)
-        table = self.create_out_table_definition("output.csv", incremental=True, primary_key=["timestamp"])
+        elif endpoint == "creatives":
+            if self._creative_campaign_map_cache is None:
+                self._creative_campaign_map_cache = {}
+            for batch in batched(self._get_campaign_ids(account_id), 100):
+                rows = list(CreativesClient(self._client).get_creatives(account_id, batch))
+                for row in rows:
+                    self._creative_campaign_map_cache[row["id"]] = row["campaign_id"]
+                self._write_rows("creatives", rows, ["id"])
 
-        # get file path of the table (data/out/tables/Features.csv)
-        out_table_path = table.full_path
-        logging.info(out_table_path)
+        elif endpoint == "analytics":
+            analytics_client = AnalyticsClient(self._client)
+            self._write_rows(
+                "analytics_by_campaign",
+                analytics_client.get_analytics(account_id, "CAMPAIGN", start_date, end_date, self.cfg.analytics_granularity),
+                ["campaign_id", "date", "granularity"],
+            )
+            self._write_rows(
+                "analytics_by_creative",
+                analytics_client.get_analytics(
+                    account_id,
+                    "CREATIVE",
+                    start_date,
+                    end_date,
+                    self.cfg.analytics_granularity,
+                    creative_campaign_map=self._build_creative_campaign_map(account_id),
+                ),
+                ["creative_id", "campaign_id", "date", "granularity"],
+            )
 
-        # Add timestamp column and save into out_table_path
-        input_table = input_tables[0]
-        with (
-            open(input_table.full_path, "r") as inp_file,
-            open(table.full_path, mode="wt", encoding="utf-8", newline="") as out_file,
-        ):
-            reader = csv.DictReader(inp_file)
+    def _get_campaign_ids(self, account_id: str) -> list[str]:
+        """Fetch campaign IDs once per run and cache them."""
+        if self._campaign_ids_cache is None:
+            self._campaign_ids_cache = [row["id"] for row in CampaignsClient(self._client).get_campaigns(account_id)]
+        return self._campaign_ids_cache
 
-            columns = list(reader.fieldnames)
-            # append timestamp
-            columns.append("timestamp")
+    def _build_creative_campaign_map(self, account_id: str) -> dict[str, str]:
+        """Return creative_id → campaign_id mapping, reusing data from the creatives sync if already fetched."""
+        if self._creative_campaign_map_cache is not None:
+            return self._creative_campaign_map_cache
+        self._creative_campaign_map_cache = {}
+        for batch in batched(self._get_campaign_ids(account_id), 100):
+            for creative in CreativesClient(self._client).get_creatives(account_id, batch):
+                self._creative_campaign_map_cache[creative["id"]] = creative["campaign_id"]
+        return self._creative_campaign_map_cache
 
-            # write result with column added
-            writer = csv.DictWriter(out_file, fieldnames=columns)
-            writer.writeheader()
-            for in_row in reader:
-                in_row["timestamp"] = datetime.now().isoformat()
-                writer.writerow(in_row)
+    def _write_rows(self, table_name: str, rows, primary_key: list[str]) -> None:
+        """Append rows to the named output table, creating the writer on first use."""
+        written = 0
+        for row in rows:
+            if table_name not in self._writers:
+                table_def = self.create_out_table_definition(
+                    f"{table_name}.csv", incremental=True, primary_key=primary_key
+                )
+                self._writers[table_name] = _WriterRecord(
+                    writer=ElasticDictWriter(table_def.full_path, list(row.keys())),
+                    table_def=table_def,
+                )
+            self._writers[table_name].writer.writerow(row)
+            written += 1
+        if written:
+            logging.info(f"Wrote {written} rows to {table_name}")
+        else:
+            logging.info(f"No rows returned for {table_name}")
 
-        # Save table manifest (output.csv.manifest) from the Table definition
-        self.write_manifest(table)
+    def _flush_writers(self) -> None:
+        """Close all open writers and write their manifests."""
+        for table_name, record in self._writers.items():
+            record.writer.close()
+            table_def = self.create_out_table_definition(
+                record.table_def.name,
+                incremental=record.table_def.incremental,
+                primary_key=record.table_def.primary_key,
+                columns=record.writer.fieldnames,
+            )
+            self.write_manifest(table_def)
 
-        # Write new state - will be available next run
-        self.write_state_file({"some_state_parameter": "value"})
+    @staticmethod
+    def _determine_date_range(state: dict, date_start: str, date_end: str) -> tuple[date, date]:
+        today = date.today()
+        if date_start.strip().lower() == "last_run":
+            if state and "last_run_date" in state:
+                resolved_start = state["last_run_date"]
+            else:
+                resolved_start = (today - timedelta(days=365)).isoformat()
+        else:
+            resolved_start = date_start
+        start_str, end_str = parse_datetime_interval(resolved_start, date_end, "%Y-%m-%d")
+        return date.fromisoformat(start_str), date.fromisoformat(end_str)
 
-        # ####### EXAMPLE TO REMOVE END
 
-
-"""
-        Main entrypoint
-"""
 if __name__ == "__main__":
     try:
         comp = Component()
-        # this triggers the run method by default and is controlled by the configuration.action parameter
         comp.execute_action()
     except UserException as exc:
         logging.exception(exc)

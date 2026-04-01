@@ -1,1 +1,47 @@
-{}
+{
+  "type": "object",
+  "title": "Ad Account Configuration",
+  "required": ["ad_account_id"],
+  "properties": {
+    "ad_account_id": {
+      "type": "string",
+      "title": "Ad Account ID",
+      "description": "LinkedIn Ads account ID (numeric or full URN like urn:li:sponsoredAccount:123).",
+      "propertyOrder": 1
+    },
+    "endpoints": {
+      "type": "array",
+      "title": "Endpoints to Sync",
+      "description": "Which resources to extract.",
+      "items": {
+        "type": "string",
+        "enum": ["accounts", "campaigns", "creatives", "analytics"]
+      },
+      "default": ["accounts", "campaigns", "creatives", "analytics"],
+      "uniqueItems": true,
+      "propertyOrder": 2
+    },
+    "analytics_granularity": {
+      "type": "string",
+      "title": "Analytics Granularity",
+      "description": "Time granularity for analytics data.",
+      "enum": ["DAILY", "MONTHLY", "ALL_TIME"],
+      "default": "DAILY",
+      "propertyOrder": 3
+    },
+    "date_start": {
+      "type": "string",
+      "title": "Date Start",
+      "description": "Start date of the sync range. Use 'last_run' (default) to continue from the last run date (falls back to 365 days on first run), or any value supported by dateparser: 'today', '7 days ago', '1 month ago', '1 year ago', or an absolute date 'YYYY-MM-DD'.",
+      "default": "last_run",
+      "propertyOrder": 4
+    },
+    "date_end": {
+      "type": "string",
+      "title": "Date End",
+      "description": "End date of the sync range. Use 'today' (default), or any value supported by dateparser: '1 day ago', '1 month ago', or an absolute date 'YYYY-MM-DD'.",
+      "default": "today",
+      "propertyOrder": 5
+    }
+  }
+}
