@@ -5,9 +5,9 @@
     "debug": {
       "type": "boolean",
       "title": "Debug Mode",
-      "description": "Enable verbose debug logging.",
+      "description": "Enable verbose debug logging. Useful for diagnosing issues — leave off in production.",
       "default": false,
-      "propertyOrder": 1
+      "propertyOrder": 2
     }
   }
 }

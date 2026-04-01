@@ -2,7 +2,7 @@ import logging
 from typing import Literal
 
 from keboola.component.exceptions import UserException
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, ValidationError, field_validator
 
 
 class Configuration(BaseModel):
@@ -10,7 +10,7 @@ class Configuration(BaseModel):
 
     debug: bool = False
     ad_account_id: str
-    endpoints: list[str] = Field(default=["accounts", "campaigns", "creatives", "analytics"])
+    endpoint: Literal["accounts", "campaigns", "creatives", "analytics"] = "analytics"
     analytics_granularity: Literal["DAILY", "MONTHLY", "ALL_TIME"] = "DAILY"
     date_start: str = "last_run"
     date_end: str = "today"
@@ -30,15 +30,6 @@ class Configuration(BaseModel):
         """Accept both raw numeric ID and full URN; always store raw numeric ID."""
         if v.startswith("urn:li:sponsoredAccount:"):
             return v.split(":")[-1]
-        return v
-
-    @field_validator("endpoints")
-    @classmethod
-    def validate_endpoints(cls, v: list[str]) -> list[str]:
-        valid = {"accounts", "campaigns", "creatives", "analytics"}
-        invalid = set(v) - valid
-        if invalid:
-            raise ValueError(f"Unknown endpoints: {invalid}. Valid values: {valid}")
         return v
 
     @field_validator("date_start")

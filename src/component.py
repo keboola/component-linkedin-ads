@@ -49,8 +49,7 @@ class Component(ComponentBase):
         start_date, end_date = self._determine_date_range(state, self.cfg.date_start, self.cfg.date_end)
         logging.info(f"Syncing account {self.cfg.ad_account_id} from {start_date} to {end_date}")
 
-        for endpoint in self.cfg.endpoints:
-            self._sync_endpoint(endpoint, self.cfg.ad_account_id, start_date, end_date)
+        self._sync_endpoint(self.cfg.endpoint, self.cfg.ad_account_id, start_date, end_date)
 
         self._flush_writers()
         self.write_state_file({"last_run_date": end_date.isoformat()})

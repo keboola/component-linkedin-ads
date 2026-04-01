@@ -1,47 +1,69 @@
 {
   "type": "object",
   "title": "Ad Account Configuration",
-  "required": ["ad_account_id"],
+  "required": ["ad_account_id", "endpoint"],
   "properties": {
     "ad_account_id": {
       "type": "string",
-      "title": "Ad Account ID",
-      "description": "LinkedIn Ads account ID (numeric or full URN like urn:li:sponsoredAccount:123).",
+      "title": "Ad Account",
+      "description": "Select your LinkedIn Ads account. Click 'Load Accounts' after authorizing, or type the numeric account ID directly.",
+      "enum": [],
+      "format": "select",
+      "options": {
+        "async": {
+          "label": "Load Accounts",
+          "action": "list_accounts",
+          "autoload": false
+        }
+      },
       "propertyOrder": 1
     },
-    "endpoints": {
-      "type": "array",
-      "title": "Endpoints to Sync",
-      "description": "Which resources to extract.",
-      "items": {
-        "type": "string",
-        "enum": ["accounts", "campaigns", "creatives", "analytics"]
-      },
-      "default": ["accounts", "campaigns", "creatives", "analytics"],
-      "uniqueItems": true,
+    "endpoint": {
+      "type": "string",
+      "title": "Endpoint to Sync",
+      "description": "Select which LinkedIn Ads resource to extract.",
+      "enum": ["accounts", "campaigns", "creatives", "analytics"],
+      "enumNames": ["Accounts", "Campaigns", "Creatives", "Analytics"],
+      "default": "analytics",
       "propertyOrder": 2
     },
     "analytics_granularity": {
       "type": "string",
       "title": "Analytics Granularity",
-      "description": "Time granularity for analytics data.",
+      "description": "Time granularity for analytics aggregation.",
       "enum": ["DAILY", "MONTHLY", "ALL_TIME"],
+      "enumNames": ["Daily", "Monthly", "All Time (total)"],
       "default": "DAILY",
-      "propertyOrder": 3
+      "propertyOrder": 3,
+      "options": {
+        "dependencies": {
+          "endpoint": "analytics"
+        }
+      }
     },
     "date_start": {
       "type": "string",
       "title": "Date Start",
-      "description": "Start date of the sync range. Use 'last_run' (default) to continue from the last run date (falls back to 365 days on first run), or any value supported by dateparser: 'today', '7 days ago', '1 month ago', '1 year ago', or an absolute date 'YYYY-MM-DD'.",
+      "description": "Start of the analytics sync range. Use 'last_run' to continue from the last successful run (falls back to 365 days ago on first run), or any dateparser expression such as 'today', '7 days ago', '1 month ago', or an absolute date 'YYYY-MM-DD'.",
       "default": "last_run",
-      "propertyOrder": 4
+      "propertyOrder": 4,
+      "options": {
+        "dependencies": {
+          "endpoint": "analytics"
+        }
+      }
     },
     "date_end": {
       "type": "string",
       "title": "Date End",
-      "description": "End date of the sync range. Use 'today' (default), or any value supported by dateparser: '1 day ago', '1 month ago', or an absolute date 'YYYY-MM-DD'.",
+      "description": "End of the analytics sync range. Use 'today', '1 day ago', or an absolute date 'YYYY-MM-DD'.",
       "default": "today",
-      "propertyOrder": 5
+      "propertyOrder": 5,
+      "options": {
+        "dependencies": {
+          "endpoint": "analytics"
+        }
+      }
     }
   }
 }
