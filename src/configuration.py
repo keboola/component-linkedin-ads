@@ -9,7 +9,7 @@ class Configuration(BaseModel):
     """Merged root + row configuration. The platform delivers all parameters as one flat dict."""
 
     debug: bool = False
-    ad_account_id: str
+    ad_account_id: str = ""
     endpoint: Literal["accounts", "campaigns", "creatives", "analytics"] = "analytics"
     analytics_granularity: Literal["DAILY", "MONTHLY", "ALL_TIME"] = "DAILY"
     date_start: str = "last_run"
