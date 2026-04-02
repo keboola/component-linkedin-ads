@@ -1,7 +1,10 @@
 {
   "type": "object",
   "title": "Ad Account Configuration",
-  "required": ["ad_account_id", "endpoint"],
+  "required": [
+    "ad_account_id",
+    "endpoint"
+  ],
   "properties": {
     "ad_account_id": {
       "type": "string",
@@ -10,6 +13,7 @@
       "enum": [],
       "format": "select",
       "options": {
+        "creatable": true,
         "async": {
           "label": "Load Accounts",
           "action": "list_accounts",
@@ -22,8 +26,18 @@
       "type": "string",
       "title": "Endpoint to Sync",
       "description": "Select which LinkedIn Ads resource to extract.",
-      "enum": ["accounts", "campaigns", "creatives", "analytics"],
-      "enumNames": ["Accounts", "Campaigns", "Creatives", "Analytics"],
+      "enum": [
+        "accounts",
+        "campaigns",
+        "creatives",
+        "analytics"
+      ],
+      "enumNames": [
+        "Accounts",
+        "Campaigns",
+        "Creatives",
+        "Analytics"
+      ],
       "default": "analytics",
       "propertyOrder": 2
     },
@@ -31,8 +45,16 @@
       "type": "string",
       "title": "Analytics Granularity",
       "description": "Time granularity for analytics aggregation.",
-      "enum": ["DAILY", "MONTHLY", "ALL_TIME"],
-      "enumNames": ["Daily", "Monthly", "All Time (total)"],
+      "enum": [
+        "DAILY",
+        "MONTHLY",
+        "ALL_TIME"
+      ],
+      "enumNames": [
+        "Daily",
+        "Monthly",
+        "All Time (total)"
+      ],
       "default": "DAILY",
       "propertyOrder": 3,
       "options": {
