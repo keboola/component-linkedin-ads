@@ -71,7 +71,7 @@ class LinkedInAdsClient:
         attempt_5xx = 0
 
         while True:
-            response = self._session.get(full_url)
+            response = self._session.get(full_url, timeout=(10, 60))
 
             if response.status_code in (401, 403):
                 raise UserException(
@@ -100,9 +100,7 @@ class LinkedInAdsClient:
                 continue
 
             if not response.ok:
-                raise UserException(
-                    f"LinkedIn API request failed ({response.status_code}): {response.text[:200]}"
-                )
+                raise UserException(f"LinkedIn API request failed ({response.status_code}): {response.text[:200]}")
             return response
 
 
@@ -118,14 +116,11 @@ class AccountsClient(_ResourceClient):
 
     def list_all_accounts(self) -> Iterator[dict]:
         """Yield all ad accounts accessible to the authenticated user."""
-        try:
-            for element in self._client._paginate_cursor("/adAccounts", {"q": "search"}):
-                yield {
-                    "id": str(element.get("id", "")),
-                    "name": element.get("name", ""),
-                }
-        except requests.exceptions.HTTPError as e:
-            raise UserException(f"Failed to list ad accounts: {e}") from e
+        for element in self._client._paginate_cursor("/adAccounts", {"q": "search"}):
+            yield {
+                "id": str(element.get("id", "")),
+                "name": element.get("name", ""),
+            }
 
     def get_accounts(self, account_id: str) -> Iterator[dict]:
         element = self._client.get(f"/adAccounts/{account_id}")
@@ -180,9 +175,7 @@ class CreativesClient(_ResourceClient):
     """Fetches ad creatives."""
 
     def get_creatives(self, account_id: str, campaign_ids: tuple[str, ...] | list[str]) -> Iterator[dict]:
-        encoded_urns = ",".join(
-            f"urn:li:sponsoredCampaign:{cid}".replace(":", "%3A") for cid in campaign_ids
-        )
+        encoded_urns = ",".join(f"urn:li:sponsoredCampaign:{cid}".replace(":", "%3A") for cid in campaign_ids)
         params = {
             "q": "criteria",
             "campaigns": f"List({encoded_urns})",

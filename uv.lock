@@ -176,6 +176,7 @@ wheels = [
 name = "linkedin-ads"
 source = { virtual = "." }
 dependencies = [
+    { name = "dateparser" },
     { name = "keboola-component" },
     { name = "keboola-csvwriter" },
     { name = "keboola-utils" },
@@ -194,6 +195,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "dateparser", specifier = ">=1.4.0" },
     { name = "keboola-component", specifier = ">=1.9.0" },
     { name = "keboola-csvwriter", specifier = ">=1.0.1" },
     { name = "keboola-utils", specifier = ">=1.1.0" },

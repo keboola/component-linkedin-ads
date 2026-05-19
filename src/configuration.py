@@ -1,4 +1,5 @@
 import logging
+import dateparser
 from typing import Literal
 
 from keboola.component.exceptions import UserException
@@ -37,7 +38,6 @@ class Configuration(BaseModel):
     def validate_date_start(cls, v: str) -> str:
         if v.strip().lower() == "last_run":
             return v
-        import dateparser
         if dateparser.parse(v) is None:
             raise ValueError(
                 f"Invalid date_start: {v!r}. Use 'last_run', 'today', '5 days ago', '1 month ago', or 'YYYY-MM-DD'."
@@ -47,9 +47,6 @@ class Configuration(BaseModel):
     @field_validator("date_end")
     @classmethod
     def validate_date_end(cls, v: str) -> str:
-        import dateparser
         if dateparser.parse(v) is None:
-            raise ValueError(
-                f"Invalid date_end: {v!r}. Use 'today', '1 day ago', '1 month ago', or 'YYYY-MM-DD'."
-            )
+            raise ValueError(f"Invalid date_end: {v!r}. Use 'today', '1 day ago', '1 month ago', or 'YYYY-MM-DD'.")
         return v

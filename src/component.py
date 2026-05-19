@@ -87,7 +87,9 @@ class Component(ComponentBase):
             analytics_client = AnalyticsClient(self._client)
             self._write_rows(
                 "analytics_by_campaign",
-                analytics_client.get_analytics(account_id, "CAMPAIGN", start_date, end_date, self.cfg.analytics_granularity),
+                analytics_client.get_analytics(
+                    account_id, "CAMPAIGN", start_date, end_date, self.cfg.analytics_granularity
+                ),
                 ["campaign_id", "date", "granularity"],
             )
             self._write_rows(
@@ -143,8 +145,7 @@ class Component(ComponentBase):
         for table_name, record in self._writers.items():
             record.writer.close()
             schema = {
-                col: ColumnDefinition(primary_key=(col in record.primary_key))
-                for col in record.writer.fieldnames
+                col: ColumnDefinition(primary_key=(col in record.primary_key)) for col in record.writer.fieldnames
             }
             table_def = self.create_out_table_definition(
                 record.table_def.name,
