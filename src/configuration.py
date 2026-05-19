@@ -20,7 +20,7 @@ class Configuration(BaseModel):
             super().__init__(**data)
         except ValidationError as e:
             msgs = [f"{'.'.join(str(x) for x in err['loc'])}: {err['msg']}" for err in e.errors()]
-            raise UserException(f"Configuration error: {', '.join(msgs)}")
+            raise UserException(f"Configuration error: {', '.join(msgs)}") from e
         if self.debug:
             logging.debug("Component will run in Debug mode")
 

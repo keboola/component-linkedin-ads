@@ -35,22 +35,6 @@ class LinkedInAdsClient:
         response = self._request_with_retry(url, params or {})
         return response.json()
 
-    def _paginate(self, path: str, params: dict) -> Iterator[dict]:
-        """Yield all elements across paginated LinkedIn API responses (index-based)."""
-        start = 0
-        count = 100
-        while True:
-            page_params = {**params, "start": start, "count": count}
-            data = self.get(path, page_params)
-            elements = data.get("elements", [])
-            for element in elements:
-                yield element
-            paging = data.get("paging", {})
-            total = paging.get("total", 0)
-            start += len(elements)
-            if start >= total or not elements:
-                break
-
     def _paginate_cursor(self, path: str, params: dict) -> Iterator[dict]:
         """Yield all elements using cursor-based pagination (pageSize/pageToken), required by search APIs since version 202401."""
         page_params = {**params, "pageSize": 100}
@@ -106,13 +90,19 @@ class LinkedInAdsClient:
 
             if response.status_code >= 500:
                 if attempt_5xx >= max_5xx_retries:
-                    response.raise_for_status()
+                    raise UserException(
+                        f"LinkedIn API server error ({response.status_code}) after {max_5xx_retries} retries. "
+                        "Try again later."
+                    )
                 logging.warning(f"Server error ({response.status_code}), retrying in 5s (attempt {attempt_5xx + 1})")
                 time.sleep(5)
                 attempt_5xx += 1
                 continue
 
-            response.raise_for_status()
+            if not response.ok:
+                raise UserException(
+                    f"LinkedIn API request failed ({response.status_code}): {response.text[:200]}"
+                )
             return response
 
 
@@ -134,8 +124,8 @@ class AccountsClient(_ResourceClient):
                     "id": str(element.get("id", "")),
                     "name": element.get("name", ""),
                 }
-        except requests.exceptions.HTTPError:
-            pass
+        except requests.exceptions.HTTPError as e:
+            raise UserException(f"Failed to list ad accounts: {e}") from e
 
     def get_accounts(self, account_id: str) -> Iterator[dict]:
         element = self._client.get(f"/adAccounts/{account_id}")
@@ -293,4 +283,7 @@ def _format_analytics_date(start: dict) -> str:
     """Convert a LinkedIn dateRange.start dict (year/month/day) to an ISO date string."""
     if not start:
         return ""
-    return date(start["year"], start["month"], start["day"]).isoformat()
+    try:
+        return date(start["year"], start["month"], start["day"]).isoformat()
+    except KeyError as e:
+        raise UserException(f"Malformed date range in LinkedIn API response: {start}") from e

@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from itertools import batched
 
 from keboola.component.base import ComponentBase, sync_action
-from keboola.component.dao import TableDefinition
+from keboola.component.dao import ColumnDefinition, TableDefinition
 from keboola.component.exceptions import UserException
 from keboola.component.sync_actions import SelectElement
 from keboola.csvwriter import ElasticDictWriter
@@ -20,6 +20,7 @@ from linkedin_client import AccountsClient, AnalyticsClient, CampaignsClient, Cr
 class _WriterRecord:
     writer: ElasticDictWriter
     table_def: TableDefinition
+    primary_key: list[str]
 
 
 class Component(ComponentBase):
@@ -34,6 +35,7 @@ class Component(ComponentBase):
             raise UserException("Missing OAuth access token. Re-authorize the component via Keboola OAuth.")
         self._client = LinkedInAdsClient(access_token)
         self._writers: dict[str, _WriterRecord] = {}
+        self._total_rows_written: int = 0
         self._campaign_ids_cache: list[str] | None = None
         self._creative_campaign_map_cache: dict[str, str] | None = None
 
@@ -45,6 +47,10 @@ class Component(ComponentBase):
         ]
 
     def run(self) -> None:
+        if not self.cfg.ad_account_id:
+            raise UserException(
+                "ad_account_id is required. Select an account from the dropdown or enter a numeric account ID."
+            )
         state = self.get_state_file()
         start_date, end_date = self._determine_date_range(state, self.cfg.date_start, self.cfg.date_end)
         logging.info(f"Syncing account {self.cfg.ad_account_id} from {start_date} to {end_date}")
@@ -52,7 +58,8 @@ class Component(ComponentBase):
         self._sync_endpoint(self.cfg.endpoint, self.cfg.ad_account_id, start_date, end_date)
 
         self._flush_writers()
-        self.write_state_file({"last_run_date": end_date.isoformat()})
+        if self._total_rows_written > 0:
+            self.write_state_file({"last_run_date": end_date.isoformat()})
 
     def _sync_endpoint(self, endpoint: str, account_id: str, start_date: date, end_date: date) -> None:
         if endpoint == "accounts":
@@ -117,15 +124,15 @@ class Component(ComponentBase):
         written = 0
         for row in rows:
             if table_name not in self._writers:
-                table_def = self.create_out_table_definition(
-                    f"{table_name}.csv", incremental=True, primary_key=primary_key
-                )
+                table_def = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
                 self._writers[table_name] = _WriterRecord(
                     writer=ElasticDictWriter(table_def.full_path, list(row.keys())),
                     table_def=table_def,
+                    primary_key=primary_key,
                 )
             self._writers[table_name].writer.writerow(row)
             written += 1
+        self._total_rows_written += written
         if written:
             logging.info(f"Wrote {written} rows to {table_name}")
         else:
@@ -135,11 +142,14 @@ class Component(ComponentBase):
         """Close all open writers and write their manifests."""
         for table_name, record in self._writers.items():
             record.writer.close()
+            schema = {
+                col: ColumnDefinition(primary_key=(col in record.primary_key))
+                for col in record.writer.fieldnames
+            }
             table_def = self.create_out_table_definition(
                 record.table_def.name,
                 incremental=record.table_def.incremental,
-                primary_key=record.table_def.primary_key,
-                columns=record.writer.fieldnames,
+                schema=schema,
             )
             self.write_manifest(table_def)
 
@@ -153,8 +163,11 @@ class Component(ComponentBase):
                 resolved_start = (today - timedelta(days=365)).isoformat()
         else:
             resolved_start = date_start
-        start_str, end_str = parse_datetime_interval(resolved_start, date_end, "%Y-%m-%d")
-        return date.fromisoformat(start_str), date.fromisoformat(end_str)
+        try:
+            start_str, end_str = parse_datetime_interval(resolved_start, date_end, "%Y-%m-%d")
+            return date.fromisoformat(start_str), date.fromisoformat(end_str)
+        except (ValueError, TypeError) as e:
+            raise UserException(f"Invalid date range ({resolved_start!r} – {date_end!r}): {e}") from e
 
 
 if __name__ == "__main__":

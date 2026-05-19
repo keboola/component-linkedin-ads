@@ -32,7 +32,7 @@
         "creatives",
         "analytics"
       ],
-      "enumNames": [
+      "enum_titles": [
         "Accounts",
         "Campaigns",
         "Creatives",
@@ -50,7 +50,7 @@
         "MONTHLY",
         "ALL_TIME"
       ],
-      "enumNames": [
+      "enum_titles": [
         "Daily",
         "Monthly",
         "All Time (total)"
