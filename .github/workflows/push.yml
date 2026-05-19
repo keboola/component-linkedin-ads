@@ -103,6 +103,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+          target: production
           tags: ${{ env.KBC_DEVELOPERPORTAL_APP }}:latest
           outputs: type=docker,dest=/tmp/${{ env.KBC_DEVELOPERPORTAL_APP }}.tar
 
@@ -117,23 +118,26 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - push_event_info
-      - build
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Download artifact
-        uses: actions/download-artifact@v4
+      - name: Build test image
+        uses: docker/build-push-action@v5
         with:
-          name: ${{ env.KBC_DEVELOPERPORTAL_APP }}
-          path: /tmp
+          context: .
+          file: ./Dockerfile
+          target: test
+          tags: ${{ env.KBC_DEVELOPERPORTAL_APP }}-test:latest
+          load: true
 
-      - name: Load Image & Run Tests
+      - name: Run Tests
         run: |
-          docker load --input /tmp/${{ env.KBC_DEVELOPERPORTAL_APP }}.tar
-          docker image ls -a
-          echo "Running unit-tests..."
-          docker run ${{ env.KBC_DEVELOPERPORTAL_APP }}:latest python -m pytest tests/ --tb=short -q
+          echo "Running tests..."
+          docker run ${{ env.KBC_DEVELOPERPORTAL_APP }}-test:latest
 
   tests-kbc:
     name: Run KBC Tests
