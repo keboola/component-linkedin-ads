@@ -1,7 +1,7 @@
 import logging
-import dateparser
 from typing import Literal
 
+import dateparser
 from keboola.component.exceptions import UserException
 from pydantic import BaseModel, ValidationError, field_validator
 
