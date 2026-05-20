@@ -1,1 +1,93 @@
-{}
+{
+  "type": "object",
+  "title": "Ad Account Configuration",
+  "required": [
+    "ad_account_id",
+    "endpoint"
+  ],
+  "properties": {
+    "ad_account_id": {
+      "type": "string",
+      "title": "Ad Account",
+      "description": "Select your LinkedIn Ads account. Click 'Load Accounts' after authorizing, or type the numeric account ID directly.",
+      "enum": [],
+      "format": "select",
+      "options": {
+        "creatable": true,
+        "async": {
+          "label": "Load Accounts",
+          "action": "list_accounts",
+          "autoload": false
+        }
+      },
+      "propertyOrder": 1
+    },
+    "endpoint": {
+      "type": "string",
+      "title": "Endpoint to Sync",
+      "description": "Select which LinkedIn Ads resource to extract.",
+      "enum": [
+        "accounts",
+        "campaigns",
+        "creatives",
+        "analytics"
+      ],
+      "default": "analytics",
+      "propertyOrder": 2,
+      "options": {
+        "enum_titles": [
+          "Accounts",
+          "Campaigns",
+          "Creatives",
+          "Analytics"
+        ]
+      }
+    },
+    "analytics_granularity": {
+      "type": "string",
+      "title": "Analytics Granularity",
+      "description": "Time granularity for analytics aggregation.",
+      "enum": [
+        "DAILY",
+        "MONTHLY",
+        "ALL_TIME"
+      ],
+      "default": "DAILY",
+      "propertyOrder": 3,
+      "options": {
+        "enum_titles": [
+          "Daily",
+          "Monthly",
+          "All Time (total)"
+        ],
+        "dependencies": {
+          "endpoint": "analytics"
+        }
+      }
+    },
+    "date_start": {
+      "type": "string",
+      "title": "Date Start",
+      "description": "Start of the analytics sync range. Use 'last_run' to continue from the last successful run (falls back to 365 days ago on first run), or any dateparser expression such as 'today', '7 days ago', '1 month ago', or an absolute date 'YYYY-MM-DD'.",
+      "default": "last_run",
+      "propertyOrder": 4,
+      "options": {
+        "dependencies": {
+          "endpoint": "analytics"
+        }
+      }
+    },
+    "date_end": {
+      "type": "string",
+      "title": "Date End",
+      "description": "End of the analytics sync range. Use 'today', '1 day ago', or an absolute date 'YYYY-MM-DD'.",
+      "default": "today",
+      "propertyOrder": 5,
+      "options": {
+        "dependencies": {
+          "endpoint": "analytics"
+        }
+      }
+    }
+  }
+}

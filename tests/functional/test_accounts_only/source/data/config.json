@@ -1,0 +1,14 @@
+{
+  "parameters": {
+    "ad_account_id": "123456",
+    "endpoint": "accounts"
+  },
+  "authorization": {
+    "oauth_api": {
+      "credentials": {
+        "#data": "{\"access_token\": \"test-access-token\"}",
+        "oauthVersion": "2.0"
+      }
+    }
+  }
+}

@@ -1,1 +1,1 @@
-Enter long description of the component here.
+The LinkedIn Ads extractor pulls advertising data from your LinkedIn Ads accounts into Keboola. It supports extracting accounts, campaigns, creatives, and analytics with configurable time granularity (daily, monthly, or all-time) and date ranges. Incremental syncs are supported via the `last_run` date expression, allowing continuous updates from the last successful execution.

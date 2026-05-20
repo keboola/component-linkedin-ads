@@ -1,18 +1,12 @@
 {
   "type": "object",
-  "title": "extractor configuration",
-  "required": [
-    "print_hello"
-  ],
+  "title": "LinkedIn Ads Extractor",
   "properties": {
-    "print_hello": {
-      "type": "boolean",
-      "title": "Print Hello",
-      "propertyOrder": 1
-    },
     "debug": {
       "type": "boolean",
-      "title": "Debug",
+      "title": "Debug Mode",
+      "description": "Enable verbose debug logging. Useful for diagnosing issues — leave off in production.",
+      "default": false,
       "propertyOrder": 2
     }
   }
