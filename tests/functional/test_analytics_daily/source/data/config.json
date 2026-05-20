@@ -1,0 +1,19 @@
+{
+  "parameters": {
+    "ad_account_id": "506580485",
+    "endpoint": "analytics",
+    "date_start": "1 month ago",
+    "date_end": "today",
+    "analytics_granularity": "DAILY"
+  },
+  "authorization": {
+    "oauth_api": {
+      "credentials": {
+        "#data": "{\"access_token\": \"FAKE_ACCESS_TOKEN_FOR_VCR_REPLAY\"}",
+        "oauthVersion": "2.0",
+        "appKey": "FAKE_APP_KEY",
+        "#appSecret": "FAKE_APP_SECRET"
+      }
+    }
+  }
+}
