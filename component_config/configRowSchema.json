@@ -32,14 +32,16 @@
         "creatives",
         "analytics"
       ],
-      "enum_titles": [
-        "Accounts",
-        "Campaigns",
-        "Creatives",
-        "Analytics"
-      ],
       "default": "analytics",
-      "propertyOrder": 2
+      "propertyOrder": 2,
+      "options": {
+        "enum_titles": [
+          "Accounts",
+          "Campaigns",
+          "Creatives",
+          "Analytics"
+        ]
+      }
     },
     "analytics_granularity": {
       "type": "string",
@@ -50,14 +52,14 @@
         "MONTHLY",
         "ALL_TIME"
       ],
-      "enum_titles": [
-        "Daily",
-        "Monthly",
-        "All Time (total)"
-      ],
       "default": "DAILY",
       "propertyOrder": 3,
       "options": {
+        "enum_titles": [
+          "Daily",
+          "Monthly",
+          "All Time (total)"
+        ],
         "dependencies": {
           "endpoint": "analytics"
         }
