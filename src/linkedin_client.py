@@ -5,7 +5,7 @@ import random
 import time
 import urllib.parse
 from collections.abc import Iterator
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Literal
 
 import requests
@@ -41,8 +41,7 @@ class LinkedInAdsClient:
         while True:
             data = self.get(path, page_params)
             elements = data.get("elements", [])
-            for element in elements:
-                yield element
+            yield from elements
             next_token = data.get("metadata", {}).get("nextPageToken")
             if not next_token or not elements:
                 break
@@ -269,7 +268,7 @@ def _format_date_field(epoch_ms: int | None) -> str:
     """Convert epoch milliseconds to ISO date string."""
     if not epoch_ms:
         return ""
-    return datetime.fromtimestamp(epoch_ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+    return datetime.fromtimestamp(epoch_ms / 1000, tz=UTC).strftime("%Y-%m-%d")
 
 
 def _format_analytics_date(start: dict) -> str:
