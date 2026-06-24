@@ -35,11 +35,9 @@ class Component(ComponentBase):
             raise UserException("Missing OAuth credentials. Authorize the component via Keboola OAuth.")
         access_token = self._extract_access_token(oauth)
         if not access_token:
-            data_type = type(oauth.data).__name__
-            data_preview = str(oauth.data)[:100] if oauth.data else "empty"
             raise UserException(
-                f"Could not extract OAuth access token from stored credentials (data type: {data_type}, "
-                f"preview: {data_preview}). Re-authorize the component via Keboola OAuth."
+                "Could not extract OAuth access token — the stored credentials format is unexpected. "
+                "Re-authorize the component via Keboola OAuth."
             )
         self._client = LinkedInAdsClient(access_token)
         self._writers: dict[str, _WriterRecord] = {}
