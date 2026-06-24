@@ -1,5 +1,6 @@
 """LinkedIn Ads extractor component."""
 
+import json
 import logging
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -30,9 +31,14 @@ class Component(ComponentBase):
         if self.cfg.debug:
             logging.getLogger().setLevel(logging.DEBUG)
         oauth = self.configuration.oauth_credentials
-        access_token = oauth.data.get("access_token") if oauth else None
+        if not oauth:
+            raise UserException("Missing OAuth credentials. Authorize the component via Keboola OAuth.")
+        access_token = self._extract_access_token(oauth)
         if not access_token:
-            raise UserException("Missing OAuth access token. Re-authorize the component via Keboola OAuth.")
+            raise UserException(
+                "Missing OAuth access token. The stored credentials may be expired or invalid. "
+                "Re-authorize the component via Keboola OAuth."
+            )
         self._client = LinkedInAdsClient(access_token)
         self._writers: dict[str, _WriterRecord] = {}
         self._total_rows_written: int = 0
@@ -169,6 +175,19 @@ class Component(ComponentBase):
             return date.fromisoformat(start_str), date.fromisoformat(end_str)
         except (ValueError, TypeError) as e:
             raise UserException(f"Invalid date range ({resolved_start!r} – {date_end!r}): {e}") from e
+
+    @staticmethod
+    def _extract_access_token(oauth) -> str | None:
+        """Extract access_token from OAuth credentials, handling both dict and JSON-string formats."""
+        data = oauth.data
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except (json.JSONDecodeError, TypeError):
+                return None
+        if isinstance(data, dict):
+            return data.get("access_token")
+        return None
 
 
 if __name__ == "__main__":

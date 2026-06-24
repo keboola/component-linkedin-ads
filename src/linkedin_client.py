@@ -1,5 +1,6 @@
 """LinkedIn Ads API client."""
 
+import json
 import logging
 import random
 import time
@@ -33,7 +34,14 @@ class LinkedInAdsClient:
         """Execute authenticated GET, raises on non-2xx."""
         url = f"{BASE_URL}{path}"
         response = self._request_with_retry(url, params or {})
-        return response.json()
+        try:
+            return response.json()
+        except (json.JSONDecodeError, ValueError) as e:
+            raise UserException(
+                f"LinkedIn API returned an invalid response for {path}. "
+                f"This may indicate an authorization issue. Re-authorize the component via Keboola OAuth. "
+                f"Details: {response.text[:200]}"
+            ) from e
 
     def _paginate_cursor(self, path: str, params: dict) -> Iterator[dict]:
         """Yield all elements using cursor-based pagination (pageSize/pageToken), required by search APIs since version 202401."""
@@ -70,7 +78,14 @@ class LinkedInAdsClient:
         attempt_5xx = 0
 
         while True:
-            response = self._session.get(full_url, timeout=(10, 60))
+            try:
+                response = self._session.get(full_url, timeout=(10, 60))
+            except requests.exceptions.ConnectionError as e:
+                raise UserException("Failed to connect to LinkedIn API. Check your network or try again later.") from e
+            except requests.exceptions.Timeout as e:
+                raise UserException("LinkedIn API request timed out. Try again later.") from e
+            except requests.exceptions.RequestException as e:
+                raise UserException(f"LinkedIn API request failed: {e}") from e
 
             if response.status_code in (401, 403):
                 raise UserException(
