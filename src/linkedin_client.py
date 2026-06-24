@@ -38,9 +38,8 @@ class LinkedInAdsClient:
             return response.json()
         except (json.JSONDecodeError, ValueError) as e:
             raise UserException(
-                f"LinkedIn API returned an invalid response for {path}. "
-                f"This may indicate an authorization issue. Re-authorize the component via Keboola OAuth. "
-                f"Details: {response.text[:200]}"
+                f"LinkedIn API returned an invalid (non-JSON) response for {path} "
+                f"(HTTP {response.status_code}): {response.text[:500]}"
             ) from e
 
     def _paginate_cursor(self, path: str, params: dict) -> Iterator[dict]:
@@ -81,15 +80,20 @@ class LinkedInAdsClient:
             try:
                 response = self._session.get(full_url, timeout=(10, 60))
             except requests.exceptions.ConnectionError as e:
-                raise UserException("Failed to connect to LinkedIn API. Check your network or try again later.") from e
+                raise UserException(f"Failed to connect to LinkedIn API: {e}") from e
             except requests.exceptions.Timeout as e:
-                raise UserException("LinkedIn API request timed out. Try again later.") from e
+                raise UserException(f"LinkedIn API request timed out: {e}") from e
             except requests.exceptions.RequestException as e:
                 raise UserException(f"LinkedIn API request failed: {e}") from e
 
             if response.status_code in (401, 403):
+                try:
+                    error_body = response.json()
+                    detail = error_body.get("message", response.text[:500])
+                except Exception:
+                    detail = response.text[:500]
                 raise UserException(
-                    f"Authentication failed (HTTP {response.status_code}). "
+                    f"Authentication failed (HTTP {response.status_code}): {detail}. "
                     "Re-authorize the component via Keboola OAuth."
                 )
 
@@ -114,7 +118,12 @@ class LinkedInAdsClient:
                 continue
 
             if not response.ok:
-                raise UserException(f"LinkedIn API request failed ({response.status_code}): {response.text[:200]}")
+                try:
+                    error_body = response.json()
+                    detail = error_body.get("message", response.text[:500])
+                except Exception:
+                    detail = response.text[:500]
+                raise UserException(f"LinkedIn API request failed (HTTP {response.status_code}): {detail}")
             return response
 
 

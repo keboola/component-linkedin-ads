@@ -35,9 +35,11 @@ class Component(ComponentBase):
             raise UserException("Missing OAuth credentials. Authorize the component via Keboola OAuth.")
         access_token = self._extract_access_token(oauth)
         if not access_token:
+            data_type = type(oauth.data).__name__
+            data_preview = str(oauth.data)[:100] if oauth.data else "empty"
             raise UserException(
-                "Missing OAuth access token. The stored credentials may be expired or invalid. "
-                "Re-authorize the component via Keboola OAuth."
+                f"Could not extract OAuth access token from stored credentials (data type: {data_type}, "
+                f"preview: {data_preview}). Re-authorize the component via Keboola OAuth."
             )
         self._client = LinkedInAdsClient(access_token)
         self._writers: dict[str, _WriterRecord] = {}
@@ -186,7 +188,11 @@ class Component(ComponentBase):
             except (json.JSONDecodeError, TypeError):
                 return None
         if isinstance(data, dict):
-            return data.get("access_token")
+            # Support both flat {"access_token": ...} and nested {"data": {"access_token": ...}}
+            token = data.get("access_token")
+            if not token and isinstance(data.get("data"), dict):
+                token = data["data"].get("access_token")
+            return token
         return None
 
 
