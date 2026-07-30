@@ -30,7 +30,7 @@ class LinkedInAdsClient:
         )
 
     def get(self, path: str, params: dict | None = None) -> dict:
-        """Execute authenticated GET, raises on non-2xx."""
+        """Execute authenticated GET; raises UserException on non-2xx or a non-JSON body."""
         url = f"{BASE_URL}{path}"
         response = self._request_with_retry(url, params or {})
         try:
@@ -41,7 +41,7 @@ class LinkedInAdsClient:
             # opaque internal error. requests' JSONDecodeError subclasses ValueError.
             raise UserException(
                 f"LinkedIn API returned a non-JSON response (HTTP {response.status_code}) "
-                f"for {path}: {response.text[:500]}"
+                f"for {path}: {response.text[:200]}"
             ) from e
 
     def _paginate_cursor(self, path: str, params: dict) -> Iterator[dict]:
