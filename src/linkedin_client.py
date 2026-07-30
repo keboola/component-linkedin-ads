@@ -30,10 +30,19 @@ class LinkedInAdsClient:
         )
 
     def get(self, path: str, params: dict | None = None) -> dict:
-        """Execute authenticated GET, raises on non-2xx."""
+        """Execute authenticated GET; raises UserException on non-2xx or a non-JSON body."""
         url = f"{BASE_URL}{path}"
         response = self._request_with_retry(url, params or {})
-        return response.json()
+        try:
+            return response.json()
+        except ValueError as e:
+            # A 2xx response whose body is not valid JSON (e.g. an HTML error/maintenance
+            # page from an edge proxy). Surface the real body instead of crashing with an
+            # opaque internal error. requests' JSONDecodeError subclasses ValueError.
+            raise UserException(
+                f"LinkedIn API returned a non-JSON response (HTTP {response.status_code}) "
+                f"for {path}: {response.text[:200]}"
+            ) from e
 
     def _paginate_cursor(self, path: str, params: dict) -> Iterator[dict]:
         """Yield all elements using cursor-based pagination (pageSize/pageToken), required by search APIs since version 202401."""
@@ -70,7 +79,13 @@ class LinkedInAdsClient:
         attempt_5xx = 0
 
         while True:
-            response = self._session.get(full_url, timeout=(10, 60))
+            try:
+                response = self._session.get(full_url, timeout=(10, 60))
+            except requests.exceptions.RequestException as e:
+                # Network-level failure (connection reset, DNS, read timeout, ...). Without
+                # this, the exception escapes as a non-UserException and the job dies with an
+                # opaque "internal error"; surface the underlying cause instead.
+                raise UserException(f"Could not reach the LinkedIn API at {url}: {e}") from e
 
             if response.status_code in (401, 403):
                 raise UserException(
